@@ -1,0 +1,276 @@
+---
+title: "Digital Harms Survey Analysis"
+author: "Alicia Mergenthaler"
+date: "10/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Factor Analysis and PCA on Digital Harm Data
+In this script, I use the OfCom Digital Harm Survey to determine latent factors behind digital harm and 
+
+```{r Load Libraries, echo=FALSE}
+#install.packages("fastDummies")
+library(reshape2)
+library(haven)
+library(polycor)
+library(psych)
+library(FactoMineR)
+library(GPArotation)
+library(tidyverse)
+library(naniar)
+library(polycor)
+library(dplyr)
+library(Hmisc)
+library(fastDummies)
+```
+```{r Import SPSS Files}
+survey <- read_sav("~/Desktop/Nuffield Data Literacy/Data/Digital Harms/9180089-01 Ofcom Online Harm Final SPSS file - F2F Survey - 090419.sav")
+surveyKids <- read_sav("~/Desktop/Nuffield Data Literacy/Data/Digital Harms/20190321_RI2215_OFCOM_HARMS_Data - Kids.sav")
+surveyWebsites <- read_sav("~/Desktop/Nuffield Data Literacy/Data/Digital Harms/QS0706_Websites_260718_2030.sav")
+```
+
+```{r try to get the metadata}
+a <- survey[1:100]
+b <- survey[101:200]
+c <- survey[201:300]
+#Which website did you experience xyz
+d <- survey[301:400]
+e <- survey[401:500]
+f <- survey[501:600]
+g <- survey[601:700]
+h <- survey[701:800]
+i <- survey[801:900]
+j <- survey[901:1000]
+h <- survey[1001:1100]
+i <- survey[1101:1200]
+j <- survey[1201:1300]
+k <- survey[1301:1400]
+l <- survey[1401:1500]
+m <- survey[1501:1600]
+o <- survey[1601:1700]
+p <- survey[1701:1800]
+q <- survey[1801:1900]
+r <- survey[1901:2000]
+#Why didn't you report and other demographic questions
+s <- survey[2001:2206]
+t <- s[150:204]
+```
+
+```{r write to csv so I can see all the columns in python}
+write_csv(survey, "surveydigitalharms.csv")
+write_csv(surveyKids, "surveykids.csv")
+write_csv(surveyWebsites, "surveyWebsites.csv")
+```
+
+```{r Filter Data}
+#Look at levels
+levelsdescription <- sapply(survey, nlevels)
+```
+
+```{r}
+#the ideal ratio of respondants to questions is 5:1 so we are limiting to 270 qs
+
+#Drop A1 because all respondents questioned use the internet
+
+questions <- c('b1_1', 'b1_2', 'b1_3', 'b1_4', 'b1_5', 'b1_6', 'b1_7', 'b1_8', 'b1_9', 'b1_10', 'b1_11', 'b2', 'c2a1_1', 'c2a1_2','c2a1_3','c2a1_4','c2a1_5','c2a1_6','c2a1_7','c2a1_8','c2a1_9','c2a1_10','c2a1_11','c2a1_12','c2a1_13','c2a1_14','c2a1_15','c2a1_16','c2a1_17','c2a1_18','c2a1_19','c2a1_20','c2a1_21', 'c2a1_22', 'c2a1_23', 'c2a1_24', 'c2a1_25', 'c2a1_26', 'c2a1_27', 'c2a1_28', 'c2b1_1', 'c2b1_2',
+'c2b1_3', 'c2b1_4', 'c2b1_5', 'c2b1_6', 'c2b1_7', 'c2b1_8', 'c2b1_9', 'c2b1_10', 'c2b1_11', 'c2b1_12', 'c2b1_13', 'c2b1_14', 'c2b1_15', 'c2b1_16', 'c2b1_17', 'c2b1_18', 'c2b1_19', 'c2b1_20', "c2b1_21", "c2b1_22", "c2b1_23", "c2b1_24", "c2b1_25", "c2b1_26", "c2b1_27", "c2b1_28", "c3a1", "c3a2", "c3a3", "c3a4",     "c3a5", "c3a6", "c3a7",  "c3a8", "c3a9", "c3a10", "c3a11", "c3a12", "c3a13", "c3a14",
+"c3a15", "c3a16", "c3a17", "c3a18", "c3a19", "c3a20", "c3a21",  "c3a22",  "c3a23",  
+"c3a24",  "c3a25", "c3b1",  "c3b2",  "c3b3", "c3b4", "c3b5", "c3b6",  "c3b7", "c3b8",  "c3b9", "c3b10",  "c3b11",  "c3b12", "c3b13", "c3b14", "c3b15", "c3b16", "c3b17", "c3b18",  "c3b19",  "c3b20", "c3b21", "c3b22", "c3b23", "c3b24", "c3b25", "c4_1", "c4_2", "c4_3", "c4_4", "c4_5", "c4_6", "c4_7", "c4_8",    "c4_9", "c4_10", "c4_11", "c4_12", "c4_13", "c4_14", "c4_15", "c4_16", "c4_17", "c4_18", "c4_19", "c4_20", "c4_21", "c4_22", "c4_23", "c4_24", "c4_25",   "c4_26",   "c4_27",   "c4_28",  
+"ga_1",    "ga_2",    "ga_3",    "ga_4",    "ga_5",    "ga_6",    "ga_7",    "ga_8",    "ga_9",   
+"ga_10",   "ga_11",   "ga_12",   "ga_13",   "ga_14",   "ga_15",   "ga_16",   "ga_17",   "ga_18",  
+"ga_19",   "ga_20",   "ga_21",   "ga_22",   "ga_23",   "ga_24",  "ga_25",   "c5_1",    "c6_1", 
+"e1a", "e1b", "e1c", "e1d", "e1e", "e1f", "e1g", "e1h", "e1i", "e2a", "e2b", "e2c",  "e2d", "e2e",     "e2f", "e2g", "e2h", "e2i", "e3a", "e3b", "e3c", "e3d", "e3e", "e3f", "e3g", "e3h", "e3i", "e3a_2",     "e3b_2", "e3c_2", "e3d_2", "e3e_2", "e3f_2", "e3g_2", "e3h_2", "e3i_2", "e4_1", "e4_2", "e4_3", "e4_4", "e4_5", "e4_6", "e4_7", "e4_8", "e4_9", "e4_10", "e4_11", "e4_12", "e4_13", "e4_14", "e5a1", "e5b1",      "e5c1", "e5a2", "e5b2", "e5c2", "e5a3", "e5b3", "e5c3", "e5a4", "e5b4", "e5c4", "e5a5", "e5b5",      "e5c5", "e5a6", "e5b6", "e5c6", "e5a7", "e5b7", "e5c7", "e5a8", "e5b8", "e5c8", "e5a9",    
+"e5b9", "e5c9", "e5a10", "e5b10", "e5c10", "e5a11", "e5b11", "e5c11", "e5a12", "e5b12", "e5c12",     "e5a13", "e5b13", "e5c13") 
+
+demographic <- c('a2', 'a3', 'a5b', 'a7', 'a8', 'f1', 'f2', 'f3', 'f6', 'f7', 'f10b', 
+                          'f11a', 'f11b', 'f11c', 'f11d', 'region', 'country')
+
+questionsDemographic <- c('b1_1', 'b1_2', 'b1_3', 'b1_4', 'b1_5', 'b1_6', 'b1_7', 'b1_8', 'b1_9', 'b1_10', 'b1_11', 'b2', 'c2a1_1', 'c2a1_2','c2a1_3','c2a1_4','c2a1_5','c2a1_6','c2a1_7','c2a1_8','c2a1_9','c2a1_10','c2a1_11','c2a1_12','c2a1_13','c2a1_14','c2a1_15','c2a1_16','c2a1_17','c2a1_18','c2a1_19','c2a1_20','c2a1_21', 'c2a1_22', 'c2a1_23', 'c2a1_24', 'c2a1_25', 'c2a1_26', 'c2a1_27', 'c2a1_28', 'c2b1_1', 'c2b1_2',
+'c2b1_3', 'c2b1_4', 'c2b1_5', 'c2b1_6', 'c2b1_7', 'c2b1_8', 'c2b1_9', 'c2b1_10', 'c2b1_11', 'c2b1_12', 'c2b1_13', 'c2b1_14', 'c2b1_15', 'c2b1_16', 'c2b1_17', 'c2b1_18', 'c2b1_19', 'c2b1_20', "c2b1_21", "c2b1_22", "c2b1_23", "c2b1_24", "c2b1_25", "c2b1_26", "c2b1_27", "c2b1_28", "c3a1", "c3a2", "c3a3", "c3a4",     "c3a5", "c3a6", "c3a7",  "c3a8", "c3a9", "c3a10", "c3a11", "c3a12", "c3a13", "c3a14",
+"c3a15", "c3a16", "c3a17", "c3a18", "c3a19", "c3a20", "c3a21",  "c3a22",  "c3a23",  
+"c3a24",  "c3a25", "c3b1",  "c3b2",  "c3b3", "c3b4", "c3b5", "c3b6",  "c3b7", "c3b8",  "c3b9", "c3b10",  "c3b11",  "c3b12", "c3b13", "c3b14", "c3b15", "c3b16", "c3b17", "c3b18",  "c3b19",  "c3b20", "c3b21", "c3b22", "c3b23", "c3b24", "c3b25", "c4_1", "c4_2", "c4_3", "c4_4", "c4_5", "c4_6", "c4_7", "c4_8",    "c4_9", "c4_10", "c4_11", "c4_12", "c4_13", "c4_14", "c4_15", "c4_16", "c4_17", "c4_18", "c4_19", "c4_20", "c4_21", "c4_22", "c4_23", "c4_24", "c4_25",   "c4_26",   "c4_27",   "c4_28",  
+"ga_1",    "ga_2",    "ga_3",    "ga_4",    "ga_5",    "ga_6",    "ga_7",    "ga_8",    "ga_9",   
+"ga_10",   "ga_11",   "ga_12",   "ga_13",   "ga_14",   "ga_15",   "ga_16",   "ga_17",   "ga_18",  
+"ga_19",   "ga_20",   "ga_21",   "ga_22",   "ga_23",   "ga_24",  "ga_25",   "c5_1",    "c6_1", 
+"e1a", "e1b", "e1c", "e1d", "e1e", "e1f", "e1g", "e1h", "e1i", "e2a", "e2b", "e2c",  "e2d", "e2e",     "e2f", "e2g", "e2h", "e2i", "e3a", "e3b", "e3c", "e3d", "e3e", "e3f", "e3g", "e3h", "e3i", "e3a_2",     "e3b_2", "e3c_2", "e3d_2", "e3e_2", "e3f_2", "e3g_2", "e3h_2", "e3i_2", "e4_1", "e4_2", "e4_3", "e4_4", "e4_5", "e4_6", "e4_7", "e4_8", "e4_9", "e4_10", "e4_11", "e4_12", "e4_13", "e4_14", "e5a1", "e5b1",      "e5c1", "e5a2", "e5b2", "e5c2", "e5a3", "e5b3", "e5c3", "e5a4", "e5b4", "e5c4", "e5a5", "e5b5",      "e5c5", "e5a6", "e5b6", "e5c6", "e5a7", "e5b7", "e5c7", "e5a8", "e5b8", "e5c8", "e5a9",    
+"e5b9", "e5c9", "e5a10", "e5b10", "e5c10", "e5a11", "e5b11", "e5c11", "e5a12", "e5b12", "e5c12",     "e5a13", "e5b13", "e5c13", 'a2', 'a3', 'a5b', 'a7', 'a8', 'f1', 'f2', 'f3', 'f6', 'f7', 'f10b', 
+'f11a', 'f11b', 'f11c', 'f11d', 'region', 'country') 
+```
+```{r subset the data}
+
+subsetdata = subset(survey, select = questions)
+subsetsQD = subset(survey, select = questionsDemographic)
+subsetdata <- as.data.frame(subsetdata)
+subsetdata[] <- lapply(subsetdata, as.numeric)
+
+```
+
+```{r drop column with standard deviation of 0}
+subsetdataN <- Filter(function(x) sd(x) != 0, subsetdata)
+#subsetdataQDN <- Filter(function(x) sd(x) != 0, subsetsQD)
+subsetdataQDN <- as.data.frame(subsetsQD)
+subsetdataQDN[] <- lapply(subsetdataQDN, as.numeric)
+
+```
+```{r Create HetCor Matrix}
+mixedcorr <- polychoric(subsetdataN)
+```
+
+
+```{r extract correlations}
+ mixedMatrix <- data.matrix(mixedcorr$rho)
+```
+
+```{r Very Simple Structure}
+##Look at VSS (Very Simple Structure) to determine number of factors
+#2-3 factors explain most variability.
+vss(mixedMatrix, plot=TRUE)
+```
+```{r PCA}
+#Principal Component Analysis
+pcomp <- princomp(mixedMatrix, scores=TRUE)
+#loadings(pcomp)
+plot(pcomp)
+#screeplot(pcomp, type=c("lines"))
+#pcomp$scores[1:10,]
+std_dev <- pcomp$sdev
+pr_var <- std_dev^2
+pr_var[1:10]
+prop_varex <- pr_var/sum(pr_var)
+prop_varex[1:20]
+plot(prop_varex[1:20], xlab = "Principal Component",
+             ylab = "Proportion of Variance Explained",
+             type = "b")
+plot(cumsum(prop_varex[1:20]), xlab = "Principal Component", ylab = "Cumulative Proportion of Variance Explained", type = "b")
+
+```
+
+```{r Parallel FA, echo=FALSE}
+#Looks like 3 factors are what we're after that explain about 70 percent of the variation. Use FA and generate scree plot.
+threeFactors <- fa(mixedMatrix, nfactors=3)
+```
+
+```{r Look up the items, echo=FALSE}
+Items  <- fa.sort(threeFactors)
+```
+
+```{r Look at the fit}
+stats=fa.stats(r=NULL, threeFactors)
+#Looking at fit
+stats$fit
+stats$R2
+stats$valid
+```
+
+```{r survey scores}
+surveyScores <- factor.scores(subsetdataN, threeFactors, rho = mixedcorr$rho)
+```
+```{r look at survey scores}
+#surveyScores$scores
+```
+
+```{r Identify demographic features, clean in python if necessary}
+write.csv(subsetdataQDN, "subsetdataQDN.csv")
+```
+```{r test}
+#survey$f11d
+```
+
+```{r identify likely predictors, rename for clarity}
+colnames(subsetdataQDN)
+#region, country already okay
+names(subsetdataQDN)[names(subsetdataQDN) == "a2"] <- "gender"
+names(subsetdataQDN)[names(subsetdataQDN) == "a3"] <- "age"
+names(subsetdataQDN)[names(subsetdataQDN) == "a5b"] <- "social_class"
+names(subsetdataQDN)[names(subsetdataQDN) == "a8"] <- "urbanity_rurality"
+names(subsetdataQDN)[names(subsetdataQDN) == "f1"] <- "working_status"
+names(subsetdataQDN)[names(subsetdataQDN) == "f2"] <- "adults_in_household"
+names(subsetdataQDN)[names(subsetdataQDN) == "f3"] <- "children_in_household"
+names(subsetdataQDN)[names(subsetdataQDN) == "f6"] <- "ethnicity"
+names(subsetdataQDN)[names(subsetdataQDN) == "f7"] <- "religion"
+names(subsetdataQDN)[names(subsetdataQDN) == "f11a"] <- "income"
+names(subsetdataQDN)[names(subsetdataQDN) == "f11c"] <- "people_pleasing"
+names(subsetdataQDN)[names(subsetdataQDN) == "f11d"] <- "white_lies"
+```
+
+
+
+```{r Select X variables}
+XVariables <- subsetdataQDN %>% select(c('gender', 'age', 'social_class', 'urbanity_rurality', 'working_status', 'adults_in_household', 'children_in_household', 'ethnicity', 'religion', 'income', 'people_pleasing', 'region', 'country'))
+```
+
+```{r test}
+survey
+```
+
+```{r Generate new variables to reduce dimensionality}
+#XVariables$income_new <- ifelse(income <= 5, "low", ifelse((income >= 5) & (income <= 10), "middle", #"high"))
+```
+
+
+```{r Make Dummy Variables}
+XVariables1 <- dummy_cols(XVariables, select_columns = c('gender', 'social_class', 'urbanity_rurality', 'working_status', 'ethnicity', 'religion', 'income', 'people_pleasing', 'region', 'country'), ignore_na = TRUE)
+```
+
+```{r join dataframes on index}
+newdf <- merge(XVariables1, surveyScores$scores, by=0, all=FALSE) 
+rownames(newdf) <- newdf$Row.names
+newdf = subset(newdf, select = -c(Row.names))
+```
+
+```{r clean up categories}
+write.csv(newdf, "dummiescleanDigitalHarms.csv")
+```
+
+```{r load cleaned categories}
+#newdf3 <- read_csv("df2.csv")
+# Make dummies of the rest of the columns 
+#newdf4 <- dummy_cols(newdf3, select_columns = c("C1", "C6", "C7", "C8", "C9", "C11"), ignore_na = TRUE)
+```
+
+```{r Run regression on the scores}
+fullrecords <- newdf[!complete.cases(newdf),]
+droprecords <-  newdf[complete.cases(newdf),]
+```
+
+```{r Lm Model}
+multi.fit = lm(MR1 ~  age + adults_in_household  + children_in_household + gender_1 + gender_2 +  social_class_1 + social_class_2 + social_class_3 + social_class_4 +  social_class_5 + social_class_6  + 
+urbanity_rurality_1  + urbanity_rurality_2 + urbanity_rurality_3  + urbanity_rurality_4 + urbanity_rurality_5 + urbanity_rurality_6 + urbanity_rurality_7 + working_status_1 +  working_status_2   
++ working_status_3 + working_status_4  +  working_status_5  + working_status_6 + working_status_7 + working_status_8 + working_status_9 + income_1 + income_2 + income_3+ income_4 + income_5   + income_6  + income_7  + income_8 + region_1 + region_2+ region_3 + region_4 + region_5 + region_6 + region_7+ region_8 + region_9 + region_10 + region_12 + country_1 + country_2 + country_3 + country_4, data = droprecords)
+summary(multi.fit)
+```
+
+```{r second factor}
+multi.fit2 = lm(MR2 ~  age + adults_in_household  + children_in_household + gender_1 + gender_2 +  social_class_1 + social_class_2 + social_class_3 + social_class_4 +  social_class_5 + social_class_6  + 
+urbanity_rurality_1  + urbanity_rurality_2 + urbanity_rurality_3  + urbanity_rurality_4 + urbanity_rurality_5 + urbanity_rurality_6 + urbanity_rurality_7 + working_status_1 +  working_status_2   
++ working_status_3 + working_status_4  +  working_status_5  + working_status_6 + working_status_7 + working_status_8 + working_status_9 + income_1 + income_2 + income_3+ income_4 + income_5   + income_6  + income_7  + income_8 + region_1 + region_2+ region_3 + region_4 + region_5 + region_6 + region_7+ region_8 + region_9 + region_10 + region_12 + country_1 + country_2 + country_3 + country_4, data = droprecords)
+summary(multi.fit2)
+```
+
+```{r third factor}
+multi.fit3 = lm(MR3 ~  age + adults_in_household  + children_in_household + gender_1 + gender_2 +  social_class_1 + social_class_2 + social_class_3 + social_class_4 +  social_class_5 + social_class_6  + 
+urbanity_rurality_1  + urbanity_rurality_2 + urbanity_rurality_3  + urbanity_rurality_4 + urbanity_rurality_5 + urbanity_rurality_6 + urbanity_rurality_7 + working_status_1 +  working_status_2   
++ working_status_3 + working_status_4  +  working_status_5  + working_status_6 + working_status_7 + working_status_8 + working_status_9 + income_1 + income_2 + income_3+ income_4 + income_5   + income_6  + income_7  + income_8 + region_1 + region_2+ region_3 + region_4 + region_5 + region_6 + region_7+ region_8 + region_9 + region_10 + region_12 + country_1 + country_2 + country_3 + country_4, data = droprecords)
+summary(multi.fit3)
+
+```
+```{r understand qualitative meaning}
+weights <- surveyScores$weights
+
+
+```
+
+```{r survey weights}
+#MR1 Firstly, which, if any, of the following concern you in relation to children?
+survey$c2a1_28
+# Which, if any, of the following aspects of the internet concern you more generally?  - Hate speech / inciting violence
+survey$c2b1_10
+#Which, if any, of the following things have you come across on the internet in the last 12 months? - Hate speech / inciting violence. 
+survey$c4_25
+```
+
+

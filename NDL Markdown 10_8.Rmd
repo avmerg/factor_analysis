@@ -1,0 +1,278 @@
+---
+title: "Nuffield Data Literacy"
+author: "Alicia Mergenthaler"
+date: "8/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Factor Analysis and PCA on 2016 Survey Data
+In this script, I use 402 questions with dichotomous answers from OfCom 2016 data to determine possible latent factors behind digital literacy.
+
+```{r Load Libraries, echo=FALSE}
+#install.packages("fastDummies")
+library(reshape2)
+library(haven)
+library(polycor)
+library(psych)
+library(FactoMineR)
+library(GPArotation)
+library(tidyverse)
+library(naniar)
+library(polycor)
+library(dplyr)
+library(Hmisc)
+library(fastDummies)
+```
+```{r Import SPSS Files}
+X2015Data <- read_sav("~/Desktop/Nuffield Data Literacy/Data/ADULTS ML 2015 (1).SAV")
+X2016Data <- read_sav("~/Desktop/Nuffield Data Literacy/Data/2016 SPSS.sav")
+X2017 <- read_sav("~/Desktop/Nuffield Data Literacy/Data/2017 SPSS.sav")
+X2018Data <- read_sav("~/Desktop/Nuffield Data Literacy/Data/2018 SPSS.sav")
+```
+
+```{r View some columns I can't see}
+
+test <- X2016Data[450:1000]
+```
+
+```{r Filter Data}
+## Only Include Survey Questions
+tdf <- select(X2016Data, A1A:G4B)
+#Look at the number of factors 
+#levelsdescription <- sapply(tdf2, nlevels)
+#levelsdescription
+
+## Define Possible NA strings
+#na_strings <- c("NA", "N A", "N / A", "N/A", "N/ A", "Not Available", "NOt available")
+#tdf %>%
+#  replace_with_na_all(condition = ~.x %in% na_strings)
+#tdf[is.na(tdf)] <- -1
+
+#Drop Columns with no Variance
+tdf2 = select(tdf, -286, -11)
+
+#tdf2[] <- lapply( tdf2, as.numeric)
+#Convert factors to factors
+#tdf2[] <- lapply( tdf2, factor)
+#These are continuous variables
+#numcols <- c("IIN5A", "IIN5B", "IIN5C")
+#tdf2[numcols] <- lapply(tdf2[numcols], as.numeric)
+#tdf2 %>% 
+#  replace_with_na_at(.vars = c("IIN5A", "IIN5B", #"IIN5C"),
+#                     condition = ~.x == -1)
+```
+
+```{r check for columns with 0 standard deviation or duplicate info}
+standev= tdf2[, ! apply(tdf2 , 2 , function(x) sd(x, na.rm = TRUE)==0 ) ]
+tdftest <- data.frame(t(tdf2))
+tdftest2 <- distinct(tdftest)
+```
+
+```{r Look at questions with a lot of factors}
+#the ideal ratio of respondants to questions is 5:1 so let's try to get it there.
+
+catcol <- c('A1A', 'A1B', 'A1C', 'A1D', 'A1E', 'A1F', 'A1G', 'A1H', 'A1I',  'A2A', 'A2B', 'A2C', 'A2D', 'A2E', 'A2F', 'A2G', 'A2H', 'A2I', 'A2J', 'A2K', 'IN1', 'IN6A', 'IN6B', 'IN6C', 'IN6D', 'IN6E', 'IN6F', 'IN6G', 'IN6H', 'IN6I', 'IN6J', 'IN6K', 'IN9A', 'IN9B', 'IN9C', 'IN9D', 'IN9E', 'IN9F', 'IN9G', 'IN9H', 'IN9I', 'IN14A', 'IN14B', 'IN14C', 'IN14D', 'IN14E', 'IN14F', 'IN14G', 'IN14H', 'IN14I', 'IN14J', 'IN15A', 'IN15B', 'IN15C', 'IN15D', 'IN15E', 'IN15F', 'IN15G', 'IN15H', 'IN15I', 'IN15J', 'IN15K', 'IN15L', 'IN18A', 'IN18B', 'IN18C', 'IN18D', 'IN18E', 'IN18F', 'IN18G', 'IN18H', 'IN18I', 'IN18J', 'IN18K', 'IN24A', 'IN24B', 'IN24C', 'IN24D', 'IN24E', 'IN24F', 'IN24G', 'IN24H', 'IN24I', 'IN24J', 'IN24K', 'IN24L', 'IN24M', 'IN31E', 'IN39A', 'IN39B', 'IN39C', 'IN39D', 'IN39E', 'IN39F', 'IN39G', 'IN39H', 'IN40A', 'IN40B', 'IN40C', 'IN40D', 'IN40E', 'IN40F', 'IN40G', 'IN40H', 'IN40I', 'IN40J', 'IN40K', 'IN45A', 'IN45B', 'IN45C', 'IN45D', 'IN45E', 'IN45F', 'IN45G', 'IN45H', 'IN45I', 'IN51A', 'IN51B', 'IN51C', 'IN51D', 'IN51E', 'IN54A', 'IN54B', 'IN54C', 'IN54D', 'IN54E', 'IN54F', 'IN54G', 'IN55A', 'IN55B', 'IN55C', 'IN55D', 'IN55E', 'IN57A', 'IN57B', 'IN57C', 'IN57D', 'IN57E', 'IN57F', 'IN57G', 'IN57H', 'IN58A', 'IN58B', 'IN58C', 'IN58D', 'IN58E', 'IN58F', 'IN58G', 'IN58H', 'IN58I', 'IN58J', 'IN58K', 'IN58L', 'IN58M', 'IN58N',
+ 
+#comment out mobile phone questions                       
+# 'M1A', 'M1B', 'M1C', 'M1D', 'M1E', 'M1F', 'M1G', 'M1H', 'M1I', 'M1J', 'M1K', 'M1L', 'M1M', 'M1N', 'M1O', 'M1P', 'M1Q', 'M1R', 'M1S', 'M1T', 'M1U', 'M1V', 'M1W', 'M1X', 'M1Y', 'M1Z', 'M1AA', 'M1AB', 'M1AC', 'M1AD', 'M4A', 'M4B', 'M4C', 'M4D', 'M4E', 'M4F', 'M4G', 'M4H', 
+
+
+'G1A', 'G1B', 'G1C', 'G1D', 'G1E', 'G1F', 'G1G', 'G1H', 'G1I', 'C4A', 'C4B', 'C4C', 'C4D', 'C4E', 'C4F', 'C5A', 'C5B', 'C5C', 'C5D', 'C5E', 'C5F', 'C5G', 'C5H', 'C5I', 'C5J', 'C5K', 'C13A', 'C13B', 'C13C', 'C13D', 'C13E', 'C13F', 'C13G', 'C13H', 'C13I', 'C13J', 'C13K', 'C17', 'C18', 'ZS1A', 'ZS1B', 'ZS1C', 'ZS1D', 'ZS1E', 'ZS1F', 'ZS1G', 'ZS1H', 'ZS1I', 'ZS1J')
+
+catcolwdem <- c('S2RANGE', 'S1', 'S3', 'QDEP', 'QREG', 'QURB', 'A1A', 'A1B', 'A1C', 'A1D', 'A1E', 'A1F', 'A1G', 'A1H', 'A1I',  'A2A', 'A2B', 'A2C', 'A2D', 'A2E', 'A2F', 'A2G', 'A2H', 'A2I', 'A2J', 'A2K', 'IN1', 'IN6A', 'IN6B', 'IN6C', 'IN6D', 'IN6E', 'IN6F', 'IN6G', 'IN6H', 'IN6I', 'IN6J', 'IN6K', 'IN9A', 'IN9B', 'IN9C', 'IN9D', 'IN9E', 'IN9F', 'IN9G', 'IN9H', 'IN9I', 'IN14A', 'IN14B', 'IN14C', 'IN14D', 'IN14E', 'IN14F', 'IN14G', 'IN14H', 'IN14I', 'IN14J', 'IN15A', 'IN15B', 'IN15C', 'IN15D', 'IN15E', 'IN15F', 'IN15G', 'IN15H', 'IN15I', 'IN15J', 'IN15K', 'IN15L', 'IN18A', 'IN18B', 'IN18C', 'IN18D', 'IN18E', 'IN18F', 'IN18G', 'IN18H', 'IN18I', 'IN18J', 'IN18K', 'IN24A', 'IN24B', 'IN24C', 'IN24D', 'IN24E', 'IN24F', 'IN24G', 'IN24H', 'IN24I', 'IN24J', 'IN24K', 'IN24L', 'IN24M', 'IN31E', 'IN39A', 'IN39B', 'IN39C', 'IN39D', 'IN39E', 'IN39F', 'IN39G', 'IN39H', 'IN40A', 'IN40B', 'IN40C', 'IN40D', 'IN40E', 'IN40F', 'IN40G', 'IN40H', 'IN40I', 'IN40J', 'IN40K', 'IN45A', 'IN45B', 'IN45C', 'IN45D', 'IN45E', 'IN45F', 'IN45G', 'IN45H', 'IN45I', 'IN51A', 'IN51B', 'IN51C', 'IN51D', 'IN51E', 'IN54A', 'IN54B', 'IN54C', 'IN54D', 'IN54E', 'IN54F', 'IN54G', 'IN55A', 'IN55B', 'IN55C', 'IN55D', 'IN55E', 'IN57A', 'IN57B', 'IN57C', 'IN57D', 'IN57E', 'IN57F', 'IN57G', 'IN57H', 'IN58A', 'IN58B', 'IN58C', 'IN58D', 'IN58E', 'IN58F', 'IN58G', 'IN58H', 'IN58I', 'IN58J', 'IN58K', 'IN58L', 'IN58M', 'IN58N', 
+
+#Comment out mobile phone questions
+# 'M1A', 'M1B', 'M1C', 'M1D', 'M1E', 'M1F', 'M1G', 'M1H', 'M1I', 'M1J', 'M1K', 'M1L', 'M1M', 'M1N', 'M1O', 'M1P', 'M1Q', 'M1R', 'M1S', 'M1T', 'M1U', 'M1V', 'M1W', 'M1X', 'M1Y', 'M1Z', 'M1AA', 'M1AB', 'M1AC', 'M1AD', 'M4A', 'M4B', 'M4C', 'M4D', 'M4E', 'M4F', 'M4G', 'M4H', 
+
+'G1A', 'G1B', 'G1C', 'G1D', 'G1E', 'G1F', 'G1G', 'G1H', 'G1I', 'C1', 'C3','C4A', 'C4B', 'C4C', 'C4D', 'C4E', 'C4F', 'C5A', 'IC2', 'C5B', 'C5C', 'C5D', 'C5E', 'C5F', 'C5G', 'C5H', 'C5I', 'C5J', 'C5K', 'C6', 'C7', 'C8', 'C9', 'C11', 'C13A', 'C13B', 'C13C', 'C13D', 'C13E', 'C13F', 'C13G', 'C13H', 'C13I', 'C13J', 'C13K', 'C16', 'C17', 'C18', 'ZS1A', 'ZS1B', 'ZS1C', 'ZS1D', 'ZS1E', 'ZS1F', 'ZS1G', 'ZS1H', 'ZS1I', 'ZS1J')
+
+
+subsetdata = subset(X2016Data, select = catcol)
+#Dataset with Demographic Data
+subsetdata2 = subset(X2016Data, select = catcolwdem)
+
+#sapply(subsetdata, nlevels)
+#allcat <- select(tdf2, -c(catcol, catcol2))
+subsetdata <- as.data.frame(subsetdata)
+#levels <- sapply(subsetdata, nlevels)
+#nlevels1<- as.data.frame(levels)
+#str(subsetdata)
+
+subsetdata[] <- lapply( subsetdata, as.numeric)
+#subsetdata <- distinct(subsetdata)
+#levels <- sapply(subsetdata, nlevels)
+#nlevels1<- as.data.frame(levels)
+
+```
+```{r Create HetCor Matrix}
+#f_matrix <- data.matrix(subsetdata)
+mixedcorr <- polychoric(subsetdata)
+```
+
+
+```{r extract correlations}
+ mixedMatrix <- data.matrix(mixedcorr$rho)
+```
+
+```{r Very Simple Structure}
+##Look at VSS (Very Simple Structure) to determine number of factors
+#2-3 factors explain most variability.
+vss(mixedMatrix, plot=TRUE)
+```
+```{r PCA}
+#Principal Component Analysis
+pcomp <- princomp(mixedMatrix, scores=TRUE)
+#loadings(pcomp)
+plot(pcomp)
+#screeplot(pcomp, type=c("lines"))
+#pcomp$scores[1:10,]
+std_dev <- pcomp$sdev
+pr_var <- std_dev^2
+pr_var[1:10]
+prop_varex <- pr_var/sum(pr_var)
+prop_varex[1:20]
+plot(prop_varex[1:20], xlab = "Principal Component",
+             ylab = "Proportion of Variance Explained",
+             type = "b")
+plot(cumsum(prop_varex), xlab = "Principal Component", ylab = "Cumulative Proportion of Variance Explained", type = "b")
+
+```
+
+```{r Parallel FA, echo=FALSE}
+#Looks like 2-3 factors are what we're after. Use FA and generate scree plot.
+fourFactors <- fa(mixedMatrix, nfactors=4)
+```
+
+```{r Look up the items, echo=FALSE}
+Items  <- fa.sort(fourFactors)
+```
+
+```{r Look at the fit}
+stats=fa.stats(r=NULL, fourFactors)
+#Looking at fit
+stats$fit
+stats$R2
+stats$valid
+```
+```{r survey scores}
+surveyScores <- factor.scores(subsetdata, fourFactors, rho=mixedcorr$rho, method= 'Bartlett')
+```
+```{r look at survey scores}
+surveyScores$scores
+```
+```{r bassAckward, echo=FALSE}
+#bassAckward factor structure
+#ba3 <- bassAckward(mixedMatrix, nfactors =c(1,2,3,4),plot=TRUE)
+#baf <- bassAckward.diagram(ba3, items=TRUE)
+#fa.lookup(baf$bass.ack[[5]],dictionary=test3$text)
+#summary(bassAckward(tdf2,c(3,4,5,6,7,8),fm="pca",main="Components",plot=TRUE))
+```
+
+```{r Identify demographic features}
+#QURB <- Urbanity Indicator
+#QNAT <- Nation
+#QREG <- region or nation
+#S1 <- socioeconomic status
+#S2RANGE <- exact age
+#S3 <- respondent's gender
+#QDEP <- deprivation index
+
+#Look at age, continuous
+summary(X2016Data$S2RANGE)
+#Binary Gender
+summary(X2016Data$S3)
+#Continuous deprivation index
+summary(X2016Data$QDEP)
+#Socioeconomic status S1
+summary(X2016Data$S1)
+#QREG <- region or nation
+summary(X2016Data$QREG)
+#QURB <- Urbanity Indicator
+summary(X2016Data$QURB)
+#C1 Marital Status
+#C3 Continuous
+#C6 Work status
+#IC2 How many people in household
+#C7 Education
+#C8 Ability to read and write
+#C9 Income
+#C11 Disability or Illness
+#C16
+
+write.csv(subsetdata2, "subsetdata2.csv")
+
+```
+
+```{r Select X variables}
+XVariables <- subsetdata2 %>% select(S2RANGE, S3, QDEP, S1, QREG, QURB, C1, IC2, 
+                                     C3, C6, C7, C8, C9, C11, C16)
+```
+
+```{r Make Dummy Variables}
+XVariables <- dummy_cols(XVariables, select_columns = c("S3", "S1", "QREG", "QURB"), ignore_na = TRUE)
+```
+
+```{r join dataframes on index}
+newdf <- merge(XVariables, surveyScores$scores, by=0, all=FALSE) 
+rownames(newdf) <- newdf$Row.names
+newdf = subset(newdf, select = -c(Row.names))
+```
+
+```{r clean up categories}
+write.csv(newdf, "dummiesclean.csv")
+```
+
+```{r load cleaned categories}
+newdf3 <- read_csv("df2.csv")
+# Make dummies of the rest of the columns 
+newdf4 <- dummy_cols(newdf3, select_columns = c("C1", "C6", "C7", "C8", "C9", "C11"), ignore_na = TRUE)
+```
+
+```{r Run regression on the scores}
+fullrecords <- newdf4[!complete.cases(newdf4),]
+droprecords <-  newdf4[complete.cases(newdf4),]
+```
+
+```{r print names of the columns}
+colnames(droprecords)
+```
+
+
+```{r Lm Model}
+multi.fit = lm(MR1 ~ QDEP + S2RANGE + S3_1 + S3_2 + S1_1 + S1_2 + S1_3 + S1_4 + S1_5 + S1_6 + QREG_1 + QREG_2 + QREG_3 + QREG_4 + QREG_5 + QREG_6 + QREG_7 + QREG_8 + QREG_9 + QREG_10 + QREG_11 + QREG_12 + QURB_1 + QURB_2 + QURB_3 + QURB_4 + QURB_5 + QURB_6 + QURB_7 + Mixed + Asian + Black       + Middle_Eastern + Chinese + Other + C3 + C6 + C7 + C8 + C9 + C11 + C16 + C1_1 + C1_4 + C1_2 + C1_5 + C6_4  + C6_3 + C6_5 + C6_2 + C6_6 + C6_7 + C7_4 + C7_2 + C7_3 + C7_6 + C7_5 + C8_2 + C8_4 + C8_5 + C8_3 + C9_4 + C9_2 + C9_3 + C11_2 + C11_1 + C11_3, data = droprecords)
+summary(multi.fit)
+
+multi.fit2 = lm(MR2 ~ QDEP + S2RANGE + S3_1 + S3_2 + S1_1 + S1_2 + S1_3 + S1_4 + S1_5 + S1_6 + QREG_1 + QREG_2 + QREG_3 + QREG_4 + QREG_5 + QREG_6 + QREG_7 + QREG_8 + QREG_9 + QREG_10 + QREG_11 + QREG_12 + QURB_1 + QURB_2 + QURB_3 + QURB_4 + QURB_5 + QURB_6 + QURB_7 + Mixed + Asian + Black       + Middle_Eastern + Chinese + Other + C3 + C6 + C7 + C8 + C9 + C11 + C16 + C1_1 + C1_4 + C1_2 + C1_5 + C6_4  + C6_3 + C6_5 + C6_2 + C6_6 + C6_7 + C7_4 + C7_2 + C7_3 + C7_6 + C7_5 + C8_2 + C8_4 + C8_5 + C8_3 + C9_4 + C9_2 + C9_3 + C11_2 + C11_1 + C11_3, data = droprecords)
+summary(multi.fit2)
+
+multi.fit3 = lm(MR3 ~ QDEP + S2RANGE + S3_1 + S3_2 + S1_1 + S1_2 + S1_3 + S1_4 + S1_5 + S1_6 + QREG_1 + QREG_2 + QREG_3 + QREG_4 + QREG_5 + QREG_6 + QREG_7 + QREG_8 + QREG_9 + QREG_10 + QREG_11 + QREG_12 + QURB_1 + QURB_2 + QURB_3 + QURB_4 + QURB_5 + QURB_6 + QURB_7 + Mixed + Asian + Black       + Middle_Eastern + Chinese + Other + C3 + C6 + C7 + C8 + C9 + C11 + C16 + C1_1 + C1_4 + C1_2 + C1_5 + C6_4  + C6_3 + C6_5 + C6_2 + C6_6 + C6_7 + C7_4 + C7_2 + C7_3 + C7_6 + C7_5 + C8_2 + C8_4 + C8_5 + C8_3 + C9_4 + C9_2 + C9_3 + C11_2 + C11_1 + C11_3, data = droprecords)
+summary(multi.fit3)
+
+
+multi.fit4 = lm(MR3 ~ QDEP + S2RANGE + S3_1 + S3_2 + S1_1 + S1_2 + S1_3 + S1_4 + S1_5 + S1_6 + QREG_1 + QREG_2 + QREG_3 + QREG_4 + QREG_5 + QREG_6 + QREG_7 + QREG_8 + QREG_9 + QREG_10 + QREG_11 + QREG_12 + QURB_1 + QURB_2 + QURB_3 + QURB_4 + QURB_5 + QURB_6 + QURB_7 + Mixed + Asian + Black       + Middle_Eastern + Chinese + Other + C3 + C6 + C7 + C8 + C9 + C11 + C16 + C1_1 + C1_4 + C1_2 + C1_5 + C6_4  + C6_3 + C6_5 + C6_2 + C6_6 + C6_7 + C7_4 + C7_2 + C7_3 + C7_6 + C7_5 + C8_2 + C8_4 + C8_5 + C8_3 + C9_4 + C9_2 + C9_3 + C11_2 + C11_1 + C11_3, data = droprecords)
+summary(multi.fit4)
+
+
+```
+```{r understand qualitative meaning}
+weights <- surveyScores$weights
+
+#MR1
+#And which of these devices that you just said you had at home do you personally ever use, for any purpose? (Computer)
+
+#MR2
+#In the past year, have you asked someone else to do something for you on the internet?
+
+#MR3
+#Do you ever do any of these things on social media sites or apps? (social media engagement) 
+
+#MR4
+#Which, if any of these sources have you ever used to look for information online? (variety of sources)
+
+```
+
+
